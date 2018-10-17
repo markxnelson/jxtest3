@@ -58,7 +58,8 @@ pipeline {
             }
           }
           container('gradle') {
-            sh 'gradle clean build'
+            //sh 'gradle clean build'
+            sh './gradlew'
 
             sh 'export VERSION=`cat VERSION` && skaffold build -f skaffold.yaml'
 
