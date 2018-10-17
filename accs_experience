@@ -1,0 +1,100 @@
+PSM CLI
+- download center doesn't exist under help as it says it does in the docs
+- says i need python3 (which i don't have)
+- CLI syntax is just bizarre 
+ e.g. 
+ psm accs logs --help
+ usage: psm accs logs [parameters]
+ psm: error: the following arguments are required: -n/--name
+
+ psm accs logs -n hellodropwizard --help
+ Unknown argument --help. Please execute 'psm accs logs h' for allowed arguments.
+
+psm accs logs h
+
+DESCRIPTION
+  List log details of all the instances of an Oracle Application Container Cloud
+  Application
+
+SYNOPSIS
+  psm accs logs [parameters]
+       [--app-name <value>]
+       -n, --name <value>
+       [-of, --output-format <value>]
+
+AVAILABLE PARAMETERS
+  ̶-̶-̶a̶p̶p̶-̶n̶a̶m̶e    (string)  (deprecated)
+       Name of the application
+
+  -n, --name    (string)
+       Name of the application
+
+  -of, --output-format    (string)
+       Desired output format. Valid values are [short, json, html]
+
+EXAMPLES
+  psm accs logs -n ExampleApp
+
+
+Can't get anything useful from the logs by default
+
+psm accs logs -n hellodropwizard
+ Instance  Name                                       URL                                        Content Type     File Size
+ web.1     4144450595_web.1_a6d3c481_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  544
+ web.2     4144450595_web.2_ee60502a_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  540
+ web.1     4144450718_web.1_a6d3c481_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  596
+ web.2     4144450718_web.2_ee60502a_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  592
+ web.1     4144450751_web.1_a6d3c481_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  596
+ web.2     4144450756_web.2_ee60502a_2018-09-01-1...  https://mgilbodeoracle.us.storage.orac...  application/zip  592
+
+psm accs view-logs -n hellodropwizard
+{
+    "status": "Failed",
+    "details": {"message": "ACCS-LCM-03023: Log Stream is not enabled for application [{1}]."}
+}
+Unable to stream logs. Please try again later.
+
+
+Have to download the logs from the UI - by defaul it tries to use a popup which gets blocked by my popup blocker
+
+
+Eventually found this:
+
+2018-09-01T19:40:40.391066+00:00 ACCS[web.1]: Content of APP_HOME [ /u01/app ] dir
+2018-09-01T19:40:40.412328+00:00 ACCS[web.1]: total 15500
+2018-09-01T19:40:40.412590+00:00 ACCS[web.1]: drwxr-xr-x 1 apaas apaas       78 Apr 11 09:47 ..
+2018-09-01T19:40:40.412789+00:00 ACCS[web.1]: -rw-r--r-- 1 apaas apaas       42 Sep  1 14:47 Procfile
+2018-09-01T19:40:40.412986+00:00 ACCS[web.1]: -rw-r--r-- 1 apaas apaas       71 Sep  1 15:23 manifest.json
+2018-09-01T19:40:40.413172+00:00 ACCS[web.1]: -rw-r--r-- 1 apaas apaas       39 Sep  1 15:39 version.txt
+2018-09-01T19:40:40.413388+00:00 ACCS[web.1]: -rw-r--r-- 1 apaas apaas 15856826 Sep  1 15:39 hellodropwizard.jar
+2018-09-01T19:40:40.413470+00:00 ACCS[web.1]: drwxr-xr-x 1 apaas apaas      102 Sep  1 19:40 .
+2018-09-01T19:40:40.415292+00:00 ACCS[web.1]: Application should listen on 0.0.0.0:$PORT [enabling app to listen on all interfaces on $PORT env variable]
+2018-09-01T19:40:40.416494+00:00 ACCS[web.1]: Starting application with launch command [ java -jar hellodropwizard/hellodropwizard.jar server ]
+2018-09-01T19:40:40.450593+00:00 APP[web.1]: Error: Unable to access jarfile hellodropwizard/hellodropwizard.jar
+
+Can't upload a new version from the console, can only delete/add.  Also, it's not obvious where the 1st app went in object storage (or 2nd).  Did this
+
+push -n hellodropwizard -p $(pwd)/hellodropwizard.zip -wc true
+This command might take a while to complete...
+ Application:         hellodropwizard
+ Status:              RUNNING
+ Last Deployed On:    2018-09-01T19:56:43.340+0000
+ Created On:          2018-09-01T19:40:02.855+0000
+ Type:                web
+ URL:                 https://hellodropwizard-mgilbodeoracle.uscom-central-1.oraclecloud.com:443
+ Job ID:              36365092
+Waiting for the job to complete... (it cannot be cancelled)
+Command completed with status [SUCCEED].
+
+Update application to see what happens in terms of downtime - at some point it just begins accepting reuests but they block / hang, then you get the new version.
+
+while [ 1 ] ; do curl https://hellodropwizard-mgilbodeoracle.uscom-central-1.oraclecloud.com:443/application/version; sleep 1 ; done
+{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}{"version":"0.1.0-milestone.14.21+20180901T195056Z"}
+<html>
+<head><title>504 Gateway Time-out</title></head>
+<body bgcolor="white">
+<center><h1>504 Gateway Time-out</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>
+{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}{"version":"0.1.0-milestone.14.21+20180901T200234Z"}

@@ -1,0 +1,109 @@
+box: openjdk:10-jdk-slim
+build:
+  steps:
+    - script:
+        name: echo gradle version
+        code: ./gradlew -g $WERCKER_CACHE_DIR/.gradle version
+    - script:
+        name: create tag
+        code: ./gradlew -Preckon.scope=minor -Preckon.stage=milestone -g $WERCKER_CACHE_DIR/.gradle reckonTagCreate
+    - script:
+        name: build
+        code: ./gradlew -g $WERCKER_CACHE_DIR/.gradle clean assemble
+    - script: 
+        name: Prepare Docker image
+        code: |
+          mkdir /hello
+          cd /hello
+          unzip "$WERCKER_ROOT/build/distributions/hellodropwizard.zip"
+    - internal/docker-push:
+        name: Push image to OCIR
+        username: $OCIR_USERNAME
+        password: $OCIR_PASSWORD
+        registry: https://iad.ocir.io/v2/
+        repository: odx-pipelines/helidon/hello
+        tag: latest
+        cmd: java -jar /hello/hellodropwizard.jar
+        ports: "80"
+push-tags:
+  steps:
+    - script:
+        name: install openssh
+        code: apt-get update && apt-get install -y ssh
+    - script:
+        name: install git
+        code: apt-get update && apt-get install -y git
+    - script:
+        name: git config
+        code: |
+          git config --global user.email "gilbode@gmail.com"
+          git config --global user.name "gilbode"
+          git config --global push.default simple
+    - add-to-known_hosts:
+        hostname: github.com
+        fingerprint: nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8
+        type: rsa
+    - add-ssh-key:
+        keyname: GITHUB_HELLODROPWIZARD
+    - script:
+        name: push tag
+        code: git push --tags origin
+
+accs-deploy:
+  steps:
+    - script:
+        name: install python3
+        code: apt-get update && apt-get install -y python3 python3-requests
+    - script:
+        name: ACCS deploy
+        code: |
+         ./accs_deploy.py -d deploy hellodropwizard $(cat build/version-resources/version.txt) "build/distributions/hellodropwizard.zip"
+
+accs-deploy-curl:
+  steps:
+    - script:
+        name: install curl
+        code: apt-get update && apt-get install -y curl
+    - script:
+        name: ACCS deploy
+        code: |
+         ./accs_deploy.sh hellodropwizard $(cat build/version-resources/version.txt) "build/distributions/hellodropwizard.zip"
+
+oke-deploy:
+  steps:
+    - kubectl:
+        name: Remove secret for image pull if it already exists
+        server: $KUBE_SERVER
+        token: $KUBE_TOKEN
+        insecure-skip-tls-verify: true 
+        command: delete secret myregistrykey
+    - kubectl:
+        name: Create secret for image pull
+        server: $KUBE_SERVER
+        token: $KUBE_TOKEN
+        insecure-skip-tls-verify: true 
+        command: create secret docker-registry myregistrykey --docker-server=$OCIR_SERVER --docker-username=$OCIR_USERNAME --docker-password="$OCIR_PASSWORD" --docker-email=$OCIR_EMAIL
+    - kubectl:
+        name: Deploy application
+        server: $KUBE_SERVER
+        token: $KUBE_TOKEN
+        insecure-skip-tls-verify: true 
+        command: apply -f hello.yml
+
+workflows:
+  - name: build-release
+    pipelines:
+      - name: build
+      - name: push-tags
+        requires:
+          - build
+  - name: build-release-deploy
+    pipelines:
+      - name: build
+      - name: push-tags
+        requires:
+          - build
+      - name: deploy-to-accs
+        requires:
+          - build
+          - push-tags

@@ -1,0 +1,9 @@
+{
+	"runtime": {
+		"majorVersion": "10"
+	},
+	"command": "java -jar hellodropwizard.jar",
+	"healthCheck": {
+      "http-endpoint": "/admin/healthcheck"
+    }
+}

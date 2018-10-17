@@ -1,0 +1,50 @@
+.wercker/
+
+generated/
+target/
+*.class
+
+# eclipse
+.apt_generated/
+.eclipse-pmd
+.project
+.classpath
+.factorypath
+.settings/
+.wtpmodules
+
+# intellij
+*.iml
+*.ipr
+*.iws
+.idea
+
+*.log
+*.tlog
+
+derbyDB/
+*.swp
+.DS_Store
+
+# junit
+TEST-*.txt
+TEST-*.xml
+
+# hprof
+java_pid*
+
+# vi backup file
+*~
+
+# gradle
+.gradle/
+build/
+/bin/
+/subprojects/*/bin/
+/Users/
+
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

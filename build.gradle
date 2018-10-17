@@ -1,0 +1,127 @@
+buildscript {
+    ext {
+        getOverridableProperty = { String propertyName, String defaultValue ->
+            if (project.hasProperty(propertyName)) {
+                return project.property(propertyName).toString()
+            }
+            return defaultValue.toString()
+        }
+        READ_MAVEN_URL = getOverridableProperty(
+            'READ_MAVEN_URL', 'https://repo.maven.apache.org/maven2/')
+        PUBLISH_MAVEN_URL = getOverridableProperty(
+            'PUBLISH_MAVEN_URL', "file:${rootProject.buildDir}/maven-publish-repo")
+    }
+    repositories {
+        maven { url READ_MAVEN_URL }
+    }
+}
+
+plugins {
+    id 'java'
+    id 'distribution'
+    id 'maven-publish'
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
+    id 'org.ajoberstar.reckon' version '0.8.0'
+}
+
+reckon {
+  // reckon.scope - one of major, minor, or patch (defaults to minor)
+  scopeFromProp()
+  // reckon.stage
+  stageFromProp('milestone', 'rc', 'final')
+}
+
+reckonTagCreate.dependsOn check
+
+ext {
+    helidonVersion = '0.10.0'
+    versionsDir = file("${buildDir}/version-resources")
+}
+
+repositories {
+    maven { url READ_MAVEN_URL }
+}
+
+dependencies {
+    compile group: 'io.helidon.config', name: 'helidon-config-yaml', version: helidonVersion
+    compile group: 'io.helidon.webserver', name: 'helidon-webserver-bundle', version: helidonVersion
+    compile group: 'commons-io', name: 'commons-io', version: '2.4'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+task versionInfo() {
+  outputs.dir versionsDir
+  inputs.property "project.version", project.version.toString()
+  doLast {
+    versionsDir.mkdirs()
+    file("${versionsDir}/version.txt").withWriter { writer ->
+      writer.println project.version.toString()
+    }
+  }
+}
+
+sourceSets {
+  main {
+    output.dir(versionsDir, builtBy: versionInfo)
+  }
+}
+
+shadowJar {
+    classifier = ''
+    mergeServiceFiles()
+    manifest { attributes ( 'Main-Class': 'com.wercker.example.hellohelidon.Main',
+                          )
+    }
+  
+}
+
+tasks.matching { it.name == 'shadowJar' }.each { 
+    it.dependsOn project.configurations.runtime
+}
+
+jar {
+    // disable the jar task - shadowJar does it all
+    enabled = false
+}
+
+distributions {
+    main {
+        baseName = 'hellodropwizard'
+        contents {
+            into '/'
+            from versionInfo
+            from(shadowJar) {
+                rename { name -> 'hellodropwizard.jar' }
+            }
+        }
+    }
+}
+
+configure([distTar, distZip]) {
+    archiveName = "${baseName}.${extension}"
+    includeEmptyDirs = false
+}
+
+assemble.dependsOn shadowJar
+
+publishing {
+    publications {
+        shadowJar(MavenPublication) { publication ->
+            project.shadow.component(publication)
+        }
+    }
+}
+
+artifacts {
+    'default' shadowJar
+}
+
+publishing {
+    repositories {
+        maven {
+            url = PUBLISH_MAVEN_URL
+            artifactUrls = [READ_MAVEN_URL]
+        }
+    }
+}
+
